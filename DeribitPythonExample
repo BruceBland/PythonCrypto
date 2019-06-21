@@ -1,0 +1,39 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Fri Jun 21 14:47:33 2019
+
+@author: Bruce.Bland
+"""
+
+#!/usr/bin/python
+import base64
+import hashlib
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+api_key = 'API_KEY'
+api_secret = 'API_SECRET'
+instrument = 'BTC-PERPETUAL'
+tstamp = '1485629332052'
+price = 100
+size = 1
+params = (tstamp, api_key, api_secret, instrument, price, size)
+
+data='_=%s&_ackey=%s&_acsec=%s&_action=/api/v1/private/buy&instrument=%s&post_only=true&price=%0.2f&quantity=%d' % params
+
+hashed = base64.b64encode(hashlib.sha256(data.encode()).digest())
+signature = '%s.%s.%s' % (api_key, tstamp, hashed.decode())
+
+headers = {"x-deribit-sig": signature, "content-type":"application/x-www-form-urlencoded"}
+
+# important: in signature post_only=true, but in params it was True - so signature can't match
+params={'instrument': instrument, 'post_only': 'true', 'price': '%0.2f'%price,'quantity': size}
+
+url = 'https://test.deribit.com/api/v1/private/buy'
+data = urlencode(params).encode()
+request = Request(url, urlencode(params).encode(), headers)
+json = urlopen(request).read().decode()
+
+print(json)
+    
+    
