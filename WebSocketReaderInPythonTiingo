@@ -1,0 +1,79 @@
+# -*- coding: utf-8 -*-
+"""
+Created on Sat Jul  6 17:45:35 2019
+
+@author: Bruce
+"""
+
+from websocket import create_connection
+import simplejson as json
+import pandas as pd
+
+# Create a CSV file to put all the messages in
+myCsvRow = "MessageType,Ticker,Date,Exchange,BidSize,BidPrice,MidPrice,AskSize,AskPrice\n"
+with open('document.csv',"w") as fd:
+           fd.write(myCsvRow)
+           
+# Create a connection to the web sockets API
+ws = create_connection("wss://api.tiingo.com/crypto")
+
+# Subscription string
+subscribe = {
+        'eventName':'subscribe',
+        'authorization':'ef79e455ba9b04c3df719407e34f05e1b051b4d6',
+        'eventData': {
+            'thresholdLevel': 2
+    }
+}
+
+# Send the subscription
+ws.send(json.dumps(subscribe))
+while True:
+    # While we have data coming back
+    DataRec = ws.recv()
+    
+    # Load data into json structure
+    jdata = json.loads(DataRec)
+    
+    # Create a pandas data frame from the JSON data
+    df = pd.DataFrame(jdata)
+    
+    # If we have a data row
+    if 'data' in df:
+       data = df['data']
+       
+       # Get the message type
+       MessageType = data[0]
+       
+       # If we have a quot message
+       if MessageType == 'Q':
+           
+           Ticker = data[1]
+           Date = data[2]
+           Exchange = data[3]
+           BidSize = data[4]
+           BidPrice = data[5]
+           MidPrice = data[6]
+           AskSize = data[7]
+           AskPrice = data[8]
+       
+           #print(MessageType,Ticker,Date,Exchange,BidPrice)
+           
+           # Append the data to the csv file we created earlier
+           myCsvRow = str(MessageType) + ',' + Ticker + ',' + Date + ',' + \
+               Exchange + ',' + \
+               str(BidSize) + ',' +\
+               str(BidPrice) + ',' + \
+               str(MidPrice) + ',' + \
+               str(AskSize) + ','+ \
+               str(AskPrice) + '\n'
+           with open('document.csv','a') as fd:
+               fd.write(myCsvRow)
+       
+    else:
+        if 'response' in df:
+            print(df['response'])
+        
+    #print("Next API result")
+    
+   # elevations = response.read()
