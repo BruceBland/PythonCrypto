@@ -1,0 +1,84 @@
+library(websocket)
+library(jsonlite)
+
+ws <- WebSocket$new("ws://ukwok-pc1049:8989/socket/", autoConnect = FALSE)
+
+# Add the andler for on Open, so we can logon
+ws$onOpen(function(event) {
+  cat("Connection opened\n")
+  
+  # Send text messages
+  ws$send("{
+ type: logon_request,
+        'services': [
+        'OMAR_DS1_PUB',
+        'OMAR_ORDERS_QRY_1',
+        'OMAR_ARCHIVE_RDS'
+        ],
+        'username': 'xxxxx',
+        'password': 'xxxxx'
+        }")
+  
+})
+
+# This is the handler for the web socket messages being returned
+ws$onMessage(function(event) {
+  EventDataList <- fromJSON(event$data)
+  print(EventDataList)
+  type <- EventDataList$type
+  if (type == "logon_reply")
+  {
+    status <- EventDataList$status
+    if (status == "success")
+    {
+      print("We logged into Fidessa yipee!")
+      
+      # Now send the audit stream message
+      # Send text messages
+      ws$send("{
+        'type': 'new',
+        'id': '1202',
+        'service': 'OMAR_ARCHIVE_RDS',
+        'message': {
+          'USER_NAME': 'xxxxxxx',
+          'MESSAGE_TYPE': 'DS_LOGON',
+          'DATASTREAM_NAME': 'DS_ARCHIVED_ORDERS',
+          'DATASTREAM_REF': '20190720 23:59:00.000000 +0100s',
+          'MAX_COUNT': 5,
+          'REWIND_COUNT': 0
+        }
+      }")
+      
+      
+    } else {
+      print("Could not login to the Fidessa server")
+    }
+  }
+  
+  # Handle erors returned here
+  if (type == "error")
+  {
+    print("We got a problem !!! Going to close the session to be safe")
+    
+    # Finish
+    ws$close()
+    
+  }
+  #print("Were done so I will shut this link down")
+  
+  
+  
+})
+ws$onClose(function(event) {
+  cat("Client disconnected with code ", event$code,
+      " and reason ", event$reason, "\n", sep = "")
+})
+ws$onError(function(event) {
+  cat("Client failed to connect: ", event$message, "\n")
+})
+
+# Lets start the connection now
+ws$connect()
+
+
+
