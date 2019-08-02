@@ -1,0 +1,140 @@
+# -*- coding: utf-8 -*-
+#
+#Created on Thu Aug  1 11:53:10 2019
+#
+#@author: Bruce.Bland
+#
+# runfile('ARC_Get_Example.py',args='-instrument_fim_code MSFT.US -start 20190801 -end 20190802 -output csv') to run for spyder console
+#
+# site http://ny1-dutp-dev-04:1080/arcapi/?m=hal&p=SPECIFICATION
+#
+
+#Imports 
+import requests
+import json
+import sys
+import csv
+
+def getOpts(argv):
+    opts = {}
+    while argv:
+        if argv[0][0] == '-':
+            opts[argv[0]] = argv[1]
+        argv = argv[1:]
+    return opts
+
+def main (argv):
+    
+    inst = ""
+    start = ""
+    end = ""
+    outputType = "text"
+    
+    server = "http://ny1-dutp-dev-04:1080/arcapi/resources/arc/audit/orderEvents"
+    
+    #Parse Arguments
+    myargs = getOpts(argv)
+    
+    # Must soecifiy an instrument
+    if '-instrument_fim_code' in myargs:
+        inst = "?instrument_fim_code=" + myargs['-instrument_fim_code']
+    else:
+        print("Must specify an instrument code -instrument_fim_code FIM in command line")
+        return False
+
+    # Optional CSV style oupyt
+    if '-output' in myargs:
+        if myargs['-output'] == 'csv':
+            outputType = "csv"
+        else:
+            print("Will print data to screen - use -ouput csv to create tabled data")
+
+    # Option start date YYYYMMDD format
+    if '-start' in myargs:
+        start = "&start=" + myargs['-start']
+
+    # Optional end date
+    if '-end' in myargs:
+        end = "&end=" + myargs['-end']
+
+    #Set up request YYYYMMMDD format
+    req = server + inst + start + end
+
+    # print what we are sending
+    print("Sending the following request to the API")
+    print (">>>",req)
+    
+    # Send the request
+    print("Send txn now")
+    r=requests.get(req)
+    r.text
+    #print("<<<",r.text) Uncomment this line to see the raw data object thats created
+    
+    # Convert to JSON
+    print("Convert to JSON object")
+    data = json.loads(r.text)
+
+    # Check for errors being returned
+    if 'errors' in data:
+        print("Found Errors")
+        for item in data['errors']:
+            print("Failed to get data with error: " , item['code'])
+            print("Description text: " , item['text'])
+            
+    else:  
+        
+        # We got some data, so lets unwrap it
+        if outputType == "csv":
+            
+            print("Got some data, so lets unwrap it into CSV format")
+                
+            # Create file in our current directory
+            # will overwrite the file thats there and adds no extra CR at the
+            # end of each line
+            with open('mycsvfile.csv',mode='w',newline='') as csv_file:
+                
+                writer=csv.writer(csv_file,delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+                
+                # Write the header to the file
+                writer.writerow(["EventType",
+                                 "TimeStamp",
+                                 "PrimaryID",
+                                 "BuySell",
+                                 "FIM",
+                                 "Cpty",
+                                 "AvgPrice",
+                                 ])
+    
+                # Write each row at a time
+                for item in data['results']:
+                    writer.writerow([item['event']['event_type'],
+                                     item['event']['event_timestamp'],
+                                     item['ids']['primary_id'],
+                                     item['details']['buy_sell'],
+                                     item['details']['instrument_fim_code'],
+                                     item['details']['counterparty_code'],
+                                     item['details']['average_fill_price'],
+                                     ])
+    
+        else:
+            
+            print("Got some data, so lets unwrap it")
+            
+            # Check we have a results block
+            if 'results' in data:
+                
+                for item in data['results']:
+    
+                    if 'event' in item:
+                        print(item['event']['event_type'])
+                        print(item['event']['event_timestamp'])
+                        
+                    if 'ids' in item:
+                        print(item['ids']['primary_id'])
+                        
+                    if 'details' in item:
+                        print(item['details']['bid_price'])
+                    
+
+if __name__ == "__main__":
+   main(sys.argv[1:])
